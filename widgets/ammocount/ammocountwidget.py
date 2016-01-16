@@ -41,7 +41,7 @@ class AmmoCountWidget(widgets.WidgetBase):
         settings.setSplitterState(self.widget.splitter, self._app.settings.value('ammocount/splitterState2', None))
         self.widget.splitter.splitterMoved.connect(self._slotSplitterMoved)
         self.setAmmoWatch()
-        
+        print(self._app.settings.fileName())
     def getMenuCategory(self):
         return 'Inventory && Gear'
 

@@ -158,6 +158,7 @@ class PyPipboyApp(QtWidgets.QApplication):
                 propStore.Commit()        
         # Load Styles
         self._loadStyles()
+
         # Load widgets
         self.helpWidget = uic.loadUi(os.path.join('ui', 'helpwidget.ui'))
         self.helpWidget.textBrowser.setSource(QtCore.QUrl.fromLocalFile(os.path.join('ui', 'res', 'helpwidget.html')))
@@ -772,6 +773,7 @@ if __name__ == "__main__":
         logging.error('Error while reading logging config: ' + str(e))
 
     try:
+        pass
         faulthandler.enable()
     except Exception as e:
         logging.error('Error calling Faulthandle.enable(): ' + str(e))
