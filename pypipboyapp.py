@@ -76,8 +76,8 @@ class PyPipboyApp(QtWidgets.QApplication):
     PROGRAM_VERSION_REV = 0
     PROGRAM_VERSION_SUFFIX = 'unknown'
     #PROGRAM_ABOUT_TEXT = 'ToDo: About Text'
-    PROGRAM_ABOUT_LICENSE = 'GPL 3.0<br><br>Contains Graphical Assets owned by Bethesda and subject to their terms of service'
-    PROGRAM_ABOUT_AUTHORS = '<li>matzman666</li><li>akamal</li><li>killean</li>'
+    PROGRAM_ABOUT_LICENSE = 'GPL 3.0<br><br>Contains Graphical Assets owned by Bethesda and subject to their terms of service.'
+    PROGRAM_ABOUT_AUTHORS = '<li>matzman666</li><li>akamal</li><li>killean</li><li>gwhittey</li>'
     PROGRAM_WIDGETS_DIR = 'widgets'
     PROGRAM_STYLES_DIR = 'styles'
     
@@ -94,6 +94,7 @@ class PyPipboyApp(QtWidgets.QApplication):
     #constructor
     def __init__(self, args, inifile):
         super().__init__(args)
+        self._logger = logging.getLogger('pypipboyapp.main')
 
         self.startedFromWin32Launcher = False;
         
@@ -105,6 +106,7 @@ class PyPipboyApp(QtWidgets.QApplication):
         QtCore.QCoreApplication.setOrganizationName("PyPipboyApp")
         QtCore.QCoreApplication.setApplicationName("PyPipboyApp")
         if inifile:
+            self._logger.info('Using ini-file "' + str(inifile) + '".')
             self.settings = QtCore.QSettings(inifile, QtCore.QSettings.IniFormat)
         elif platform.system() == 'Windows':
             self.settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, "PyPipboyApp", "PyPipboyApp")
@@ -134,10 +136,9 @@ class PyPipboyApp(QtWidgets.QApplication):
         self._connectHostThread = None
         self._iwcEndpoints = dict()
         self.widgetMenu = QtWidgets.QMenu()
-        self._logger = logging.getLogger('pypipboyapp.main')
         
         pipboyAppIcon = QtGui.QIcon()
-        pipboyAppIcon.addFile(os.path.join('ui', 'res', 'PyPipBoyApp-Launcher.png'))
+        pipboyAppIcon.addFile(os.path.join('ui', 'res', 'PyPipBoyApp-Launcher.ico'))
         self.setWindowIcon(pipboyAppIcon)
         
         try:
@@ -179,12 +180,9 @@ class PyPipboyApp(QtWidgets.QApplication):
         self.mainWindow.addDockWidget(QtCore.Qt.TopDockWidgetArea, self.helpWidget)
         self._loadWidgets()
         # Restore saved window state
-        savedWindowSize = self.settings.value('mainwindow/windowSize', None)
-        if savedWindowSize:
-            self.mainWindow.resize(savedWindowSize)
-        savedWindowPos = self.settings.value('mainwindow/windowPos', None)
-        if savedWindowPos:
-            self.mainWindow.move(savedWindowPos)
+        savedGeometry = self.settings.value('mainwindow/geometry')
+        if savedGeometry:
+            self.mainWindow.restoreGeometry(savedGeometry)
         savedState = self.settings.value('mainwindow/windowstate')
         if savedState:
             self.mainWindow.restoreState(savedState)
@@ -420,8 +418,7 @@ class PyPipboyApp(QtWidgets.QApplication):
             self.relayController.stopRelayService()
             self.relayController.stopAutodiscoverService()
             # save state
-            self.settings.setValue('mainwindow/windowSize', self.mainWindow.size())
-            self.settings.setValue('mainwindow/windowPos', self.mainWindow.pos())
+            self.settings.setValue('mainwindow/geometry', self.mainWindow.saveGeometry())
             self.settings.setValue('mainwindow/windowstate', self.mainWindow.saveState())
             self.settings.sync()
             # quit
@@ -519,7 +516,7 @@ class PyPipboyApp(QtWidgets.QApplication):
     def startVersionCheck(self, verbose = False):
         def _checkVersion():
             try:
-                rawData = urllib.request.urlopen('https://raw.githubusercontent.com/matzman666/PyPipboyApp/master/VERSION').read().decode()
+                rawData = urllib.request.urlopen('https://raw.githubusercontent.com/matzman666/PyPipboyApp/versionCheck/VERSION').read().decode()
                 versionData = json.loads(rawData)
                 major = versionData['major']
                 minor = versionData['minor']
@@ -812,6 +809,5 @@ if __name__ == "__main__":
     if 'nt' in os.name:
         from ctypes import windll
         windll.shell32.SetCurrentProcessExplicitAppUserModelID(u'matzman666.pypipboyapp')
-    print('ini-file: ', inifile)
     pipboyApp = PyPipboyApp(sys.argv, inifile)
     pipboyApp.run()
