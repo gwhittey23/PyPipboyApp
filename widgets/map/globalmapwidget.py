@@ -723,16 +723,17 @@ class CollectableMarker(MarkerBase):
         
     @QtCore.pyqtSlot(bool)
     def setCollected(self, value):
-        self.collected = value
-        if value:
-            if self.collectedColor is not None:
-                self.color = self.collectedColor
-        else:
-            if self.uncollectedColor is not None:
-                self.color = self.uncollectedColor
-        self.markerPixmapDirty = True
-        self.labelDirty = True
-        self.doUpdate()
+        if self.collected != value:
+            self.collected = value
+            if value:
+                if self.collectedColor is not None:
+                    self.color = self.collectedColor
+            else:
+                if self.uncollectedColor is not None:
+                    self.color = self.uncollectedColor
+            self.markerPixmapDirty = True
+            self.labelDirty = True
+            self.doUpdate()
 
     @QtCore.pyqtSlot(bool)
     def filterSetVisible(self, value):
@@ -755,17 +756,20 @@ class CollectableMarker(MarkerBase):
                 index = self.widget._app.settings.value(collectedcollectablesSettingsPath, None)
                 if index == None:
                     index = []
+                tmp = str(int(self.itemFormID,16))
                 if (value):
-                    if self.itemFormID not in index:
-                        index.append(self.itemFormID)
+                    if tmp not in index:
+                        index = list(set(index)) # remove duplicates
+                        index.append(tmp)
                         self.widget._app.settings.setValue(collectedcollectablesSettingsPath, index)
                 else:
-                    if self.itemFormID in index:
-                        index.remove(self.itemFormID)
+                    if tmp in index:
+                        index = list(set(index)) # remove duplicates
+                        index.remove(tmp)
                         self.widget._app.settings.setValue(collectedcollectablesSettingsPath, index)
             self.setCollected(value)
         ftaction = menu.addAction('Mark as Collected')
-        ftaction.toggled.connect(_markAsCollected)
+        ftaction.triggered.connect(_markAsCollected)
         ftaction.setCheckable(True)
         ftaction.setChecked(self.collected)
 
@@ -850,6 +854,13 @@ class GlobalMapWidget(widgets.WidgetBase):
     
     MAPZOOM_SCALE_MAX = 4.0
     MAPZOOM_SCALE_MIN = 0.05
+    
+    MAP_NWX = -135168
+    MAP_NWY = 102400
+    MAP_NEX = 114688
+    MAP_NEY = 102400
+    MAP_SWX = -135168
+    MAP_SWY = -147456
   
     def __init__(self, handle, controller, parent):
         super().__init__('Global Map', parent)
@@ -1103,17 +1114,13 @@ class GlobalMapWidget(widgets.WidgetBase):
     def _onPipMapReset(self, caller, value, pathObjs):
         self.pipMapWorldObject = self.pipMapObject.child('World')
         if self.pipMapWorldObject:
-            extents = self.pipMapWorldObject.child('Extents')
-            if extents:
-                self.mapCoords.init( 
-                        extents.child('NWX').value(), extents.child('NWY').value(), 
-                        extents.child('NEX').value(),  extents.child('NEY').value(), 
-                        extents.child('SWX').value(), extents.child('SWY').value(), 
-                        self.mapItem.nw[0], self.mapItem.nw[1], 
-                        self.mapItem.ne[0], self.mapItem.ne[1], 
-                        self.mapItem.sw[0], self.mapItem.sw[1] )
-            else:
-                self._logger.warn('No "Extents" record found. Map coordinates may be off')
+            self.mapCoords.init( 
+                    self.MAP_NWX, self.MAP_NWY, 
+                    self.MAP_NEX,  self.MAP_NEY, 
+                    self.MAP_SWX, self.MAP_SWY, 
+                    self.mapItem.nw[0], self.mapItem.nw[1], 
+                    self.mapItem.ne[0], self.mapItem.ne[1], 
+                    self.mapItem.sw[0], self.mapItem.sw[1] )
             if self.widget.mapColorAutoToggle.isChecked():
                 self._slotMapColorAutoModeTriggered(True)
             pipWorldPlayer = self.pipMapWorldObject.child('Player')
@@ -1465,18 +1472,13 @@ class GlobalMapWidget(widgets.WidgetBase):
             self.selectedMapFile = self.mapFileComboItems[index]
             file = os.path.join('res', mapfile['file'])
             self.mapItem.setMapFile(file, mapfile['colorable'], mapfile['nw'], mapfile['ne'], mapfile['sw'])
-            if self.pipMapWorldObject:
-                extents = self.pipMapWorldObject.child('Extents')
-                if extents:
-                    self.mapCoords.init( 
-                            extents.child('NWX').value(), extents.child('NWY').value(), 
-                            extents.child('NEX').value(),  extents.child('NEY').value(), 
-                            extents.child('SWX').value(), extents.child('SWY').value(), 
-                            self.mapItem.nw[0], self.mapItem.nw[1], 
-                            self.mapItem.ne[0], self.mapItem.ne[1], 
-                            self.mapItem.sw[0], self.mapItem.sw[1] )
-                else:
-                    self._logger.warn('No "Extents" record found. Map coordinates may be off')
+            self.mapCoords.init( 
+                    self.MAP_NWX, self.MAP_NWY, 
+                    self.MAP_NEX,  self.MAP_NEY, 
+                    self.MAP_SWX, self.MAP_SWY,
+                    self.mapItem.nw[0], self.mapItem.nw[1], 
+                    self.mapItem.ne[0], self.mapItem.ne[1], 
+                    self.mapItem.sw[0], self.mapItem.sw[1] )
             self.signalMarkerForcePipValueUpdate.emit()
 
             self._app.settings.setValue('globalmapwidget/selectedMapFile', self.selectedMapFile)
@@ -1767,14 +1769,25 @@ class GlobalMapWidget(widgets.WidgetBase):
                 return True
         return False
 
-    def iwcSetCollectablesCollectedState(self, listFormids):
-        for catKey in self.collectableLocationMarkers.keys():
-            for instanceID, marker in self.collectableLocationMarkers[catKey].items():
-                if str(int(marker.itemFormID,16)) in listFormids:
-                    marker.setCollected(True)
-                else:
-                    marker.setCollected(False)
-
+    def iwcSetCollectablesCollectedState(self, listFormids, fullUpdate = True):
+        if fullUpdate:
+            for catKey in self.collectableLocationMarkers.keys():
+                for instanceID, marker in self.collectableLocationMarkers[catKey].items():
+                    if str(int(marker.itemFormID,16)) in listFormids:
+                        marker.setCollected(True)
+                    else:
+                        marker.setCollected(False)
+        else:
+            # Python does not allow to break out of several nested loop, 
+            # but we can use "return" as a workaround
+            def _idSetCollected(id):
+                for catKey in self.collectableLocationMarkers.keys():
+                    for instanceID, marker in self.collectableLocationMarkers[catKey].items():
+                        if str(int(marker.itemFormID,16)) == id:
+                            marker.setCollected(True)
+                            return
+            for id in listFormids:
+                _idSetCollected(id)
         self.updateCollectableVisibility(playAudibleAlerts=False)
 
 

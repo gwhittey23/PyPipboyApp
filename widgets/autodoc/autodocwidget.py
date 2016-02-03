@@ -18,6 +18,8 @@ class MedicalFeature:
     UseTimerDelay = None
     UseMethod = None
     
+    FreezeUseFlag = None
+    
     def __init__(self, startEnabled, startSetting, startLimit, formID):
         self.Enabled = startEnabled
         self.Setting = startSetting
@@ -32,12 +34,14 @@ class MedicalFeature:
         self.UseTimer.setSingleShot(True)
         self.UseTimer.timeout.connect(self.UseTimerTimeout)
         self.UseTimerDelay = 2000
+        
+        self.FreezeUseFlag = False
     
     def connect(self, useMethod):
         self.UseMethod = useMethod
     
     def Use(self):
-        if self.Enabled:
+        if self.Enabled and not self.FreezeUseFlag:
             if (self.Num > self.Limit) and (self.Num > 0):
                 if not self.Active:
                     if not self.UseFlag:
@@ -83,10 +87,6 @@ class AutoDocWidget(widgets.WidgetBase):
     Addicted = False
     Aquaperson = False
     InWater = False
-    
-    StimpakRadAwayFlag = False
-    # Activates when you trigger the no heal case because of radiation.
-    # Prevents additional stims from being taken
     
     Stimpak = MedicalFeature(True, 80, 10, 145206)
     MedX = MedicalFeature(False, 0, 5, 210809)
@@ -155,14 +155,14 @@ class AutoDocWidget(widgets.WidgetBase):
         self.UIUpdateSignal.emit()
     
     def UpdatePlayerInfoData(self, caller, value, pathObjs):
-        if self.WidgetEnabled:
+        if self.WidgetEnabled and self.isVisible():
             self.UpdateVitals()
             
             self.AutoDocSignal.emit()
             self.UIUpdateSignal.emit()
     
     def UpdateStatsData(self, caller, value, pathObjs):
-        if self.WidgetEnabled:
+        if self.WidgetEnabled and self.isVisible():
             self.UpdatePipItems()
             self.UpdateEffects()
             
@@ -170,7 +170,7 @@ class AutoDocWidget(widgets.WidgetBase):
             self.UIUpdateSignal.emit()
         
     def UpdateInventoryData(self, caller, value, pathObjs):
-        if self.WidgetEnabled:
+        if self.WidgetEnabled and self.isVisible():
             self.UpdateInventory()
             
             self.UIUpdateSignal.emit()
@@ -203,15 +203,15 @@ class AutoDocWidget(widgets.WidgetBase):
 
     @QtCore.pyqtSlot()
     def RunAutoDoc(self):
-        if self.WidgetEnabled and (self.HPPercent > 0):
+        if self.WidgetEnabled and self.isVisible() and (self.HPPercent > 0):
             # Stimpak Trigger
             if self.HPPercent < self.Stimpak.Setting:
                 # Rad Away No Healing Trigger
                 if self.Stimpak.Active:
                     if (self.HPCur == self.HPLast) and (self.HPCur != self.HPMax):
-                        if (self.RadAway.Num <= self.RadAway.Limit) or (self.RadAway.Num == 0):
-                            if not self.StimpakRadAwayFlag:
-                                self.StimpakRadAwayFlag = True
+                        if (self.RadAway.Enabled == False) or (self.RadAway.Num <= self.RadAway.Limit) or (self.RadAway.Num == 0):
+                            if not self.Stimpak.FreezeUseFlag:
+                                self.Stimpak.FreezeUseFlag = True
                         
                         if self.RadAway.Setting == 1:
                             # Rad-X RadAway Use Trigger
@@ -220,7 +220,7 @@ class AutoDocWidget(widgets.WidgetBase):
                                 
                             self.RadAway.Use()
                 else:
-                    if not self.StimpakRadAwayFlag:
+                    if not self.Stimpak.FreezeUseFlag:
                         self.Stimpak.Use()
                 
                 # Med-X %HP Trigger
@@ -266,7 +266,7 @@ class AutoDocWidget(widgets.WidgetBase):
             
     @QtCore.pyqtSlot()
     def UpdateUI(self):
-        if self.WidgetEnabled:
+        if self.WidgetEnabled and self.isVisible():
             Output = "Health [ " + str(self.HPCur) + "/" + str(self.HPMax) + " ] "
             Output += "[ " + str(self.HPPercent) + "/" + str(self.Stimpak.Setting) + " ] "
             
@@ -383,58 +383,64 @@ class AutoDocWidget(widgets.WidgetBase):
         self.Addicted = False
         self.InWater = False
         
+        self.TotalRads = 0
+        
         if self.RadState == 2:
             self.RadState = 1
-        else:
+        elif self.RadState != 1:
             self.RadState = 0
         
         if self.StatsData:
             if self.StatsData.child("ActiveEffects"):
-                ActiveEffectsData = self.StatsData.child("ActiveEffects")
-                
-                for i in range(0, ActiveEffectsData.childCount()):
-                    TypeID = ActiveEffectsData.child(i).child("type").value()
-                    
-                    if TypeID == 54:
-                        for j in range(0, ActiveEffectsData.child(i).child("Effects").childCount()):
-                            EffectName = ActiveEffectsData.child(i).child("Effects").child(j).child("Name").value()
-                            
-                            if (EffectName == "Waterbreathing") and not self.Aquaperson:
-                                self.Aquaperson = True
-                                
-                            if EffectName == "Rads":
-                                if ActiveEffectsData.child(i).child("Source").value() == "Water Radiation":
-                                    self.InWater = True
-                                else:
-                                    self.RadState = 2
-                    
-                    if TypeID == 49:
-                        if ActiveEffectsData.child(i).child("Source").value() == "Alcohol Addiction":
-                            self.Addicted = True
-                    
-                    if TypeID == 44:
-                        self.Stimpak.Active = True
+                # range() is prone to race-conditions
+                for source in self.StatsData.child("ActiveEffects").value():
+                    # People were having crashes because apparently not all sources have a type.
+                    pipType = source.child("type")
+                    if pipType:
+                        TypeID = pipType.value()
                         
-                    if TypeID == 41:
-                        for j in range(0, ActiveEffectsData.child(i).child("Effects").childCount()):
-                            EffectName = ActiveEffectsData.child(i).child("Effects").child(j).child("Name").value()
-                            
-                            if EffectName == "CA_AddictionEffect":
+                        if TypeID == 54:
+                            for effect in source.child("Effects").value():
+                                EffectName = effect.child("Name").value()
+                                
+                                if (EffectName == "Waterbreathing") and not self.Aquaperson:
+                                    self.Aquaperson = True
+                                    
+                                elif EffectName == "Rads":
+                                    self.TotalRads += effect.child("Value").value()
+                                    
+                                    if source.child("Source").value() == "Water Radiation":
+                                        self.InWater = True
+                                    else:
+                                        self.RadState = 2
+                        
+                        if TypeID == 49:
+                            if source.child("Source").value() == "Alcohol Addiction":
                                 self.Addicted = True
+                        
+                        if TypeID == 44:
+                            self.Stimpak.Active = True
                             
-                            if EffectName == "DMG Resist":
-                                if ActiveEffectsData.child(i).child("Effects").child(j).child("Value").value() > 0:
-                                    self.MedX.Active = True
-                            
-                            if EffectName == "Rads":
-                                if ActiveEffectsData.child(i).child("Effects").child(j).child("Value").value() < 0:
-                                    self.RadAway.Active = True
-                                    self.StimpakRadAwayFlag = False
-                                    self.RadState = 0
-                            
-                            if EffectName == "Rad Resist":
-                                if ActiveEffectsData.child(i).child("Effects").child(j).child("Value").value() > 0:
-                                    self.RadX.Active = True
+                        if TypeID == 41:
+                            for effect in source.child("Effects").value():
+                                EffectName = effect.child("Name").value()
+                                
+                                if EffectName == "CA_AddictionEffect":
+                                    self.Addicted = True
+                                
+                                if EffectName == "DMG Resist":
+                                    if effect.child("Value").value() > 0:
+                                        self.MedX.Active = True
+                                
+                                if EffectName == "Rads":
+                                    if effect.child("Value").value() < 0:
+                                        self.RadAway.Active = True
+                                        self.Stimpak.FreezeUseFlag = False
+                                        self.RadState = 0
+                                
+                                if EffectName == "Rad Resist":
+                                    if effect.child("Value").value() > 0:
+                                        self.RadX.Active = True
         
         if self.InWater and not self.Aquaperson:
             self.RadState = 2

@@ -18,7 +18,7 @@ from pypipboy.relayserver import RelayController
 from dialogs.selecthostdialog import SelectHostDialog
 from dialogs.connecthostdialog import ConnectHostDialog
 from dialogs.relaysettingsdialog import RelaySettingsDialog
-from widgets.widgets import ModuleHandle
+from widgets.widgets import ModuleHandle 
 
 
 class ApplicationStyle(QtCore.QObject):
@@ -32,7 +32,7 @@ class ApplicationStyle(QtCore.QObject):
 class PipboyMainWindow(QtWidgets.QMainWindow):
     # Signal that is emitted when the application should be closed.
     signalWantsToQuit = QtCore.pyqtSignal()
-
+    
     # Constructor
     def __init__(self, parent = None):
         super().__init__(parent)
@@ -42,7 +42,7 @@ class PipboyMainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(None) # damn thing cannot be removed in Qt-Designer
         self.setDockNestingEnabled(True)
         self.setTabPosition(QtCore.Qt.AllDockWidgetAreas, QtWidgets.QTabWidget.North)
-
+        
     # Init function that is called after everything has been set up
     def init(self, app, networkchannel, datamanager):
         if self.isFullScreen():
@@ -50,12 +50,12 @@ class PipboyMainWindow(QtWidgets.QMainWindow):
         else:
             self.actionFullscreen.setChecked(False)
         self.actionFullscreen.toggled.connect(self.setFullscreen)
-
+        
     def closeEvent(self, event):
         event.ignore() # We do our own shutdown handling
         self.signalWantsToQuit.emit()
-
-    @QtCore.pyqtSlot(bool)
+        
+    @QtCore.pyqtSlot(bool)        
     def setFullscreen(self, fullscreen):
         if fullscreen:
             self.showFullScreen()
@@ -66,7 +66,7 @@ class PipboyMainWindow(QtWidgets.QMainWindow):
 
 # Main application class
 class PyPipboyApp(QtWidgets.QApplication):
-
+    
     PROGRAM_NAME = 'PyPipboyApp'
     PROGRAM_VERSION_MAJOR = 0
     PROGRAM_VERSION_MINOR = 0
@@ -77,24 +77,24 @@ class PyPipboyApp(QtWidgets.QApplication):
     PROGRAM_ABOUT_AUTHORS = '<li>matzman666</li><li>akamal</li><li>killean</li><li>gwhittey</li>'
     PROGRAM_WIDGETS_DIR = 'widgets'
     PROGRAM_STYLES_DIR = 'styles'
-
+    
     # public signals
     signalConnectToHost = QtCore.pyqtSignal(str, int, bool)
     signalShowWarningMessage = QtCore.pyqtSignal(str, str)
     signalRequestQuit = QtCore.pyqtSignal()
-
+    
     # internal signals
     _signalConnectToHostFinished = QtCore.pyqtSignal(bool, str)
     _signalAutodiscoveryFinished = QtCore.pyqtSignal()
     _signalFinishedCheckVersion = QtCore.pyqtSignal(dict, bool, bool, str, bool)
-
+    
     #constructor
     def __init__(self, args, inifile):
         super().__init__(args)
         self._logger = logging.getLogger('pypipboyapp.main')
 
         self.startedFromWin32Launcher = False;
-
+        
         for i in range(0, len(args)):
             if args[i].lower() == '--startedfromwin32launcher':
                 self.startedFromWin32Launcher = True
@@ -114,10 +114,10 @@ class PyPipboyApp(QtWidgets.QApplication):
                     self.settings.setValue(k, registrySettings.value(k))
                     #registrySettings.remove(k)
                 #registrySettings.sync()
-        else:
+        else: 
             # Non-Windows OS already use the ini-format, they just use another file-extension. That's why we stick with nativeFormat.
             self.settings = QtCore.QSettings(QtCore.QSettings.NativeFormat, QtCore.QSettings.UserScope, "PyPipboyApp", "PyPipboyApp")
-
+        
         # Init PyPipboy communication layer
         self.dataManager = PipboyDataManager()
         self.networkChannel = self.dataManager.networkchannel
@@ -133,11 +133,11 @@ class PyPipboyApp(QtWidgets.QApplication):
         self._connectHostThread = None
         self._iwcEndpoints = dict()
         self.widgetMenu = QtWidgets.QMenu()
-
+        
         pipboyAppIcon = QtGui.QIcon()
         pipboyAppIcon.addFile(os.path.join('ui', 'res', 'PyPipBoyApp-Launcher.ico'))
         self.setWindowIcon(pipboyAppIcon)
-
+        
         try:
             versionFile = open('VERSION', 'r')
             versionJSON = json.loads(versionFile.read())
@@ -149,8 +149,8 @@ class PyPipboyApp(QtWidgets.QApplication):
         except Exception as e:
             self._logger.warn('Could not determine program version: ' + str(e))
 
-
-
+    
+    
     # run the application
     def run(self):
         self.mainWindow = PipboyMainWindow()
@@ -167,7 +167,7 @@ class PyPipboyApp(QtWidgets.QApplication):
                 propStore.SetValue(pscon.PKEY_AppUserModel_ID, propsys.PROPVARIANTType(u'matzman666.pypipboyapp.win32', pythoncom.VT_ILLEGAL))
                 propStore.SetValue(pscon.PKEY_AppUserModel_RelaunchDisplayNameResource, propsys.PROPVARIANTType('PyPipBoyApp', pythoncom.VT_ILLEGAL))
                 propStore.SetValue(pscon.PKEY_AppUserModel_RelaunchCommand, propsys.PROPVARIANTType(launcherpath, pythoncom.VT_ILLEGAL))
-                propStore.Commit()
+                propStore.Commit()        
         # Load Styles
         self._loadStyles()
         # Load widgets
@@ -238,7 +238,7 @@ class PyPipboyApp(QtWidgets.QApplication):
     def autoConnectToggled(self, value):
         self.settings.setValue('mainwindow/autoconnect', int(value))
 
-
+        
     # Start auto discovery (non-blocking)
     # Auto discovery is done in its own thread, we don't want to block the gui
     # returns true when the thread was successfully started
@@ -269,7 +269,7 @@ class PyPipboyApp(QtWidgets.QApplication):
             return True
         else:
             return False
-
+        
     # internal slot connected to the 'auto discovery thread is finished' signal
     @QtCore.pyqtSlot()
     def _slotAutodiscoveryFinished(self):
@@ -286,9 +286,9 @@ class PyPipboyApp(QtWidgets.QApplication):
             host = selectDialog.getSelectedHost()
             if host:
                 self.signalConnectToHost.emit(host['addr'], NetworkChannel.PIPBOYAPP_PORT, False)
-
-    # Shows a 'connect to host' dialog and then connects
-    @QtCore.pyqtSlot()
+                
+    # Shows a 'connect to host' dialog and then connects 
+    @QtCore.pyqtSlot()        
     def showConnectToDialog(self):
         if not self.networkChannel.isConnected:
             connectDialog = ConnectHostDialog(self.mainWindow)
@@ -308,15 +308,15 @@ class PyPipboyApp(QtWidgets.QApplication):
                     #self.signalConnectToHost.emit(host, port, retry)
                     self.connectToHost(host, port, retry)
                 except ValueError as e:
-                    QtWidgets.QMessageBox.warning(self.mainWindow, 'Connection to host failed',
+                    QtWidgets.QMessageBox.warning(self.mainWindow, 'Connection to host failed', 
                             'Caught exception while parsing port: ' + str(e),
                             QtWidgets.QMessageBox.Ok)
-
-
+            
+                    
     # connect to specified host (non blocking)
     # connect happens in its own thread
     # returns true when the thread was successfully started
-    @QtCore.pyqtSlot(str, int, bool, bool)
+    @QtCore.pyqtSlot(str, int, bool, bool)        
     def connectToHost(self, host, port, retry = False,  busydialog= True):
         if not self.networkChannel.isConnected:
             self._logger.info('Connecting to host ' + host + ':' + str(port) + ' Retry=' + str(retry))
@@ -354,14 +354,14 @@ class PyPipboyApp(QtWidgets.QApplication):
                 self._connectHostThread.start()
                 return True
             else:
-                QtWidgets.QMessageBox.warning(self.mainWindow, 'Connection to host failed',
+                QtWidgets.QMessageBox.warning(self.mainWindow, 'Connection to host failed', 
                         'There is another connection thread already running', QtWidgets.QMessageBox.Ok)
                 return False
         else:
             return False
-
+            
     # Cancels any currently running 'connect to host' operation
-    @QtCore.pyqtSlot(QtWidgets.QAbstractButton)
+    @QtCore.pyqtSlot(QtWidgets.QAbstractButton)        
     def cancelConnectToHost(self, button):
         if self._connectHostThread and self._connectHostThread.isRunning():
             self._logger.info('Connect to Host Thread Cancel Request received')
@@ -372,10 +372,10 @@ class PyPipboyApp(QtWidgets.QApplication):
             except:
                 pass
             self._connectHostThread = None
-
-
+                    
+    
     # internal slot connected to the 'connect thread is finished' signal
-    @QtCore.pyqtSlot(bool, str)
+    @QtCore.pyqtSlot(bool, str)        
     def _slotConnectToHostFinished(self, status, msg):
         # hide busy dialog
         if self._connectHostMessageBox:
@@ -390,25 +390,25 @@ class PyPipboyApp(QtWidgets.QApplication):
             pass
         else:
             QtWidgets.QMessageBox.warning(self.mainWindow, 'Connection to host failed', msg)
-
+                
     # Shows a warning message dialog
-    @QtCore.pyqtSlot(str, str)
+    @QtCore.pyqtSlot(str, str)        
     def showWarningMessage(self, title, text):
             QtWidgets.QMessageBox.warning(self.mainWindow, title, text)
-
+    
     # Shows a info message dialog
-    @QtCore.pyqtSlot(str, str)
+    @QtCore.pyqtSlot(str, str)        
     def showInfoMessage(self, title, text):
             QtWidgets.QMessageBox.information(self.mainWindow, title, text)
-
+    
     # disconnects the current network session
-    @QtCore.pyqtSlot()
+    @QtCore.pyqtSlot()        
     def disconnect(self):
         if self.networkChannel.isConnected:
             self.networkChannel.disconnect()
 
     # Request the user to quit, saves state and quits
-    @QtCore.pyqtSlot()
+    @QtCore.pyqtSlot()        
     def requestQuit(self):
         # do you really wanna
         if not int(self.settings.value('mainwindow/promptBeforeQuit', 1)) or  QtWidgets.QMessageBox.question(self.mainWindow, 'Close', 'Are you sure you want to quit?',
@@ -427,7 +427,7 @@ class PyPipboyApp(QtWidgets.QApplication):
             self.settings.sync()
             # quit
             self.quit()
-
+    
     def getVersionString(self, versionData = None):
         if versionData:
             major = versionData['major']
@@ -445,16 +445,16 @@ class PyPipboyApp(QtWidgets.QApplication):
         if suffix:
             version += '-' + suffix
         return version
-
+    
     # Shows the about dialog
     def showAboutDialog(self):
         QtWidgets.QMessageBox.about(self.mainWindow, 'About ' + self.PROGRAM_NAME,
             '<b>' + self.PROGRAM_NAME + '</b><br>' + self.getVersionString() + '<br><br>' +
-            #self.PROGRAM_ABOUT_TEXT + '<br><br>' +
+            #self.PROGRAM_ABOUT_TEXT + '<br><br>' + 
             '<b>License:</b><br>' + self.PROGRAM_ABOUT_LICENSE + '<br><br>' +
             '<b>Authors:</b><ul>' + self.PROGRAM_ABOUT_AUTHORS + '<ul>')
-
-    @QtCore.pyqtSlot()
+        
+    @QtCore.pyqtSlot()        
     def exportData(self):
         fileName = QtWidgets.QFileDialog.getSaveFileName(self.mainWindow, '', '', 'Pipboy Data (*.pip)')
         if fileName[0]:
@@ -467,8 +467,8 @@ class PyPipboyApp(QtWidgets.QApplication):
                 file.close()
             #except Exception as e:
             #    self.showWarningMessage('Export Data', 'Could not export data: '  + str(e))
-
-    @QtCore.pyqtSlot()
+        
+    @QtCore.pyqtSlot()        
     def importData(self):
         fileName = QtWidgets.QFileDialog.getOpenFileName(self.mainWindow, '', '', 'Pipboy Data (*.pip)')
         if fileName[0]:
@@ -478,8 +478,8 @@ class PyPipboyApp(QtWidgets.QApplication):
                 file.close()
             #except Exception as e:
             #    self.showWarningMessage('Import Data', 'Could not import data: '  + str(e))
-
-
+        
+        
     # event listener for pypipboy network state events
     def _onConnectionStateChange(self, state, errstatus = 0, errmsg = ''):
         self._logger.info('Connection State Changed: ' + str(state) + ' - ' + str(errstatus) + ' - ' + str(errmsg))
@@ -498,7 +498,7 @@ class PyPipboyApp(QtWidgets.QApplication):
             self.settings.setValue('mainwindow/lasthost', str(self.networkChannel.hostAddr))
             self.settings.setValue('mainwindow/lastport', self.networkChannel.hostPort)
 
-
+            
         else: # disconnect
             # menu management stuff
             self.mainWindow.actionConnect.setEnabled(True)
@@ -511,11 +511,11 @@ class PyPipboyApp(QtWidgets.QApplication):
             # error handling
             if errstatus != 0:
                 self.signalShowWarningMessage.emit('Connection Error', 'Connection Error: ' + str(errmsg))
-
+                
     @QtCore.pyqtSlot()
     def startVersionCheckVerbose(self):
         self.startVersionCheck(True)
-
+    
     @QtCore.pyqtSlot()
     def startVersionCheck(self, verbose = False):
         def _checkVersion():
@@ -527,8 +527,8 @@ class PyPipboyApp(QtWidgets.QApplication):
                 rev = versionData['rev']
                 suffix = versionData['suffix']
                 newVersionAvailable = False
-                if (self.PROGRAM_VERSION_MAJOR < major
-                        or (self.PROGRAM_VERSION_MAJOR == major and self.PROGRAM_VERSION_MINOR < minor)
+                if (self.PROGRAM_VERSION_MAJOR < major 
+                        or (self.PROGRAM_VERSION_MAJOR == major and self.PROGRAM_VERSION_MINOR < minor) 
                         or (self.PROGRAM_VERSION_MAJOR == major and self.PROGRAM_VERSION_MINOR == minor and self.PROGRAM_VERSION_REV < rev)):
                     newVersionAvailable = True
                 self._signalFinishedCheckVersion.emit(versionData, newVersionAvailable, False, '', verbose)
@@ -537,8 +537,8 @@ class PyPipboyApp(QtWidgets.QApplication):
                 self._signalFinishedCheckVersion.emit({}, False, True, str(e), verbose)
         self._checkVersionThread = threading.Thread(target = _checkVersion)
         self._checkVersionThread.start()
-
-
+    
+    
     @QtCore.pyqtSlot(dict, bool, bool, str, bool)
     def _slotFinishedCheckVersion(self, versionData, newVersionAvailable, errorState, errorString, verbose):
         self._checkVersionThread.join()
@@ -547,15 +547,15 @@ class PyPipboyApp(QtWidgets.QApplication):
             if verbose:
                 self.showWarningMessage('Version Check', 'Could not check for new version: ' + errorString)
         elif newVersionAvailable:
-            self.showInfoMessage('Version Check', '<b>New version is available!<br><br>'
-                                                + self.getVersionString(versionData) + '</b> (current: '
+            self.showInfoMessage('Version Check', '<b>New version is available!<br><br>' 
+                                                + self.getVersionString(versionData) + '</b> (current: ' 
                                                 + self.getVersionString() + ').<br><br>'
                                                 + 'Download from:<ul>'
                                                 + '<li><a href="http://www.nexusmods.com/fallout4/mods/4664">nexusmods.com</a><li>'
                                                 + '<li><a href="http://github.com/matzman666/PyPipboyApp">github.com</a></li></ul>')
         elif verbose:
             self.showInfoMessage('Version Check', 'Current version is up-to-date.')
-
+    
     @QtCore.pyqtSlot(bool)
     def setWindowStayOnTop(self, value):
         self.settings.setValue('mainwindow/stayOnTop', int(value))
@@ -568,7 +568,7 @@ class PyPipboyApp(QtWidgets.QApplication):
     @QtCore.pyqtSlot(bool)
     def setPromptBeforeQuit(self, value):
         self.settings.setValue('mainwindow/promptBeforeQuit', int(value))
-
+        
     def _slotRelayModeSettings(self):
         dialog = RelaySettingsDialog(self.mainWindow)
         dialog.relayGroupBox.setChecked(self.relayModeEnabled)
@@ -598,8 +598,8 @@ class PyPipboyApp(QtWidgets.QApplication):
                 self.settings.setValue('mainwindow/relayModePort', self.relayModePort)
             except Exception as e:
                 self.showWarningMessage('Relay Mode', 'Could not change settings: ' + str(e))
-
-
+    
+    
     # load widgets
     def _loadWidgets(self):
         self.widgets = list()
@@ -664,27 +664,27 @@ class PyPipboyApp(QtWidgets.QApplication):
                 self.widgetMenu.addMenu(e)
             else:
                 self.widgetMenu.addAction(e)
-
+    
     def iwcRegisterEndpoint(self, key, endpoint):
         self._iwcEndpoints[key] = endpoint
-
+        
     def iwcUnregisterEndpoint(self, key):
         if key in self._iwcEndpoints:
             del self._iwcEndpoints[key]
-
+            
     def iwcGetEndpoint(self, key):
         try:
             return self._iwcEndpoints[key]
         except:
             return None
-
+    
     # load widgets
     def _initWidgets(self):
         for w in self.widgets:
             w.iwcSetup(self)
         for w in self.widgets:
             w.init(self, self.dataManager)
-
+            
     def _loadStyles(self):
         self.styles = dict()
         for dir in os.listdir(self.PROGRAM_STYLES_DIR):
@@ -710,8 +710,8 @@ class PyPipboyApp(QtWidgets.QApplication):
             self.setStyle(self.settings.value('mainwindow/lastStyle'))
         else:
             self.setStyle('default')
-
-
+        
+            
     def setStyle(self, name):
         if (name == 'default' or not name in self.styles):
             name = 'default'
@@ -729,13 +729,13 @@ class PyPipboyApp(QtWidgets.QApplication):
                 a.setChecked(False)
         if not actionFound:
             self.mainWindow.actionStylesDefault.setChecked(True)
-        self.settings.setValue('mainwindow/lastStyle', name)
-
-
-
+        self.settings.setValue('mainwindow/lastStyle', name) 
+        
+           
+            
     def isWidgetReallyVisisble(self, widget):
         return not widget.visibleRegion().isEmpty()
-
+                
     def popWidget(self, widgetName):
         self._logger.debug('popWidget: widgetName: ' + str(widgetName))
         for widget in self.widgets:
@@ -743,7 +743,7 @@ class PyPipboyApp(QtWidgets.QApplication):
                 widget.raise_()
                 break
         return
-
+        
     def cycleWidgets(self, widgetNameList):
         self._logger.debug('cycleWidgets: widgetNameList: ' + str(widgetNameList))
         nextWidgetIndex = 0
@@ -760,15 +760,15 @@ class PyPipboyApp(QtWidgets.QApplication):
                 if (currentWidget.windowTitle().lower() == widgetNameList[i]):
                     nextWidgetIndex = i + 1
                     break
-
+                        
         if(nextWidgetIndex >= len(widgetNameList)):
             nextWidgetIndex = 0
 
         nextWidgetName = widgetNameList[nextWidgetIndex]
-        self.popWidget(nextWidgetName)
-        return
+        self.popWidget(nextWidgetName)   
+        return        
 
-
+            
 # Main entry point
 if __name__ == "__main__":
     try:
@@ -798,18 +798,18 @@ if __name__ == "__main__":
         except Exception as e:
             logging.basicConfig(level=logging.WARN)
             logging.error('Error while reading logging config: ' + str(e))
-
+    
         try:
             faulthandler.enable()
         except Exception as e:
             logging.error('Error calling Faulthandle.enable(): ' + str(e))
-
+            
         if (faulthandler.is_enabled()):
             logging.warn('Faulthandler is enabled')
             #faulthandler.dump_traceback_later(5)
         else:
             logging.error('Faulthandler is NOT enabled')
-
+    
         if 'nt' in os.name:
             from ctypes import windll
             windll.shell32.SetCurrentProcessExplicitAppUserModelID(u'matzman666.pypipboyapp')
@@ -818,3 +818,4 @@ if __name__ == "__main__":
     except:
         traceback.print_exc(file=sys.stdout)
         time.sleep(1) # Just to make sure that the error is correctly written into the log file
+
