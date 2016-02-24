@@ -426,9 +426,10 @@ class LocationMarker(PipValueMarkerBase):
             py = self.mapCoords.pip2map_y(ry)
             tttext = 'Pos: (' + str(rx) + ', ' + str(ry) + ')'
             props = self.pipValue.value()
-            for prop in props:
-                if prop != 'X' and prop !='Y':
-                    tttext += '\n' + prop + ': ' + str(props[prop].value())
+            for propkey in props:
+                if propkey != 'x' and propkey !='y':
+                    prop = props[propkey]
+                    tttext += '\n' + prop.pipParentKey + ': ' + str(prop.value())
             self.markerItem.setToolTip( tttext )
             if (self.visible or self.filterVisibilityCheatFlag) and self.filterVisibleFlag:
                 self.setVisible(True)
@@ -774,15 +775,16 @@ class CollectableMarker(MarkerBase):
         ftaction.setChecked(self.collected)
 
     def setSavedSettings(self):
-        collectedcollectablesSettingsPath =\
-            self.widget.characterDataManager.playerDataPath + self.widget.characterDataManager.collectedcollectablesuffix
-        index = self.widget._app.settings.value(collectedcollectablesSettingsPath, None)
-        if index == None:
-            index = []
-
-        if index and len(index) > 0:
-            if str(int(self.itemFormID,16)) in index:
-                self.setCollected(True)
+        if self.widget.characterDataManager.playerDataPath and self.widget.characterDataManager.collectedcollectablesuffix:
+            collectedcollectablesSettingsPath =\
+                self.widget.characterDataManager.playerDataPath + self.widget.characterDataManager.collectedcollectablesuffix
+            index = self.widget._app.settings.value(collectedcollectablesSettingsPath, None)
+            if index == None:
+                index = []
+    
+            if index and len(index) > 0:
+                if str(int(self.itemFormID,16)) in index:
+                    self.setCollected(True)
 
         super().setSavedSettings()
 
@@ -1590,6 +1592,11 @@ class GlobalMapWidget(widgets.WidgetBase):
             alertnearuncollected = bool(int(self._app.settings.value('globalmapwidget/collectable_alertuncollected_' + catKey, 0)))
             collectableVRange = int(self._app.settings.value('globalmapwidget/collectable_vrange_' + catKey, 100))
             collectableARange = int(self._app.settings.value('globalmapwidget/collectable_arange_' + catKey, 50))
+
+            # Multiplying with the map coordinate's scale factor will make the distance 
+            # independent from the map resolution
+            collectableVRange = self.mapCoords._ax * collectableVRange * 100
+            collectableARange = self.mapCoords._ax * collectableARange * 100
 
             for k, marker in self.collectableLocationMarkers[catKey].items():
                 if marker.collected:
